@@ -41,7 +41,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      name: CD - Deploy Backend & Frontend to AKS
+name: CD - Deploy Backend & Frontend to AKS
 
 on:
   workflow_run:
