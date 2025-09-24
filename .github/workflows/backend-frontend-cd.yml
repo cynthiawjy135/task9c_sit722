@@ -40,58 +40,15 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-name: CD - Deploy Backend & Frontend to AKS
-
-on:
-  workflow_run:
-    workflows: ["Backend CI - Test, Build and Push Images to ACR", "Frontend CI - Build & Push Image"]
-    types:
-      - completed
-  workflow_dispatch:
-    inputs:
-      aks_cluster_name:
-        description: 'Name of the AKS Cluster to deploy to'
-        required: true
-        default: 'taskweek9aks'
-      aks_resource_group:
-        description: 'Resource Group of the AKS Cluster'
-        required: true
-        default: 'sit722devops-rgw9'
-      aks_acr_name:
-        description: 'Name of ACR'
-        required: true
-        default: 'taskweek9acr'
-
-jobs:
-  # ===========================
-  # Backend Deployment Job
-  # ===========================
-  deploy_backend:
-    runs-on: ubuntu-latest
-    environment: Production
-
-    outputs:
-      PRODUCT_API_IP: ${{ steps.get_product_ip.outputs.external_ip }}
-      ORDER_API_IP: ${{ steps.get_order_ip.outputs.external_ip }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Log in to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Set Kubernetes context (get AKS credentials)  # MODIFIED
-        run: |
-          az aks get-credentials \
-            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
-            --name ${{ secrets.AKS_CLUSTER_NAME }} \
-            --overwrite-existing
-
+          
       - name: Attach ACR  # MODIFIED
+        run: |
+          az aks update \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+            --attach-acr ${{ secrets.AKS_ACR_NAME }}
+
+      - name: Attach ACR
         run: |
           az aks update \
             --name ${{ secrets.AKS_CLUSTER_NAME }} \
@@ -153,7 +110,7 @@ jobs:
   deploy_frontend:
     runs-on: ubuntu-latest
     environment: Production
-    needs: deploy_backend   # <--- get IP dari backend job
+    needs: deploy_backend   # <--- ambil IP dari backend job
 
     steps:
       - name: Checkout repository
