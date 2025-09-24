@@ -41,19 +41,32 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Set AKS environment variables  # MODIFIED
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "AKS_RESOURCE_GROUP=${{ github.event.inputs.aks_resource_group }}" >> $GITHUB_ENV
+            echo "AKS_CLUSTER_NAME=${{ github.event.inputs.aks_cluster_name }}" >> $GITHUB_ENV
+            echo "AKS_ACR_NAME=${{ github.event.inputs.aks_acr_name }}" >> $GITHUB_ENV
+          else
+            # Defaults saat triggered oleh workflow_run
+            echo "AKS_RESOURCE_GROUP=sit722devops-rgw9" >> $GITHUB_ENV
+            echo "AKS_CLUSTER_NAME=taskweek9aks" >> $GITHUB_ENV
+            echo "AKS_ACR_NAME=taskweek9acr" >> $GITHUB_ENV
+          fi
+
       - name: Set Kubernetes context (get AKS credentials)
         run: |
           az aks get-credentials \
-            --resource-group ${{ github.event.inputs.aks_resource_group }} \
-            --name ${{ github.event.inputs.aks_cluster_name }} \
+            --resource-group $AKS_RESOURCE_GROUP \
+            --name $AKS_CLUSTER_NAME \
             --overwrite-existing
 
       - name: Attach ACR
         run: |
           az aks update \
-            --name ${{ github.event.inputs.aks_cluster_name }} \
-            --resource-group ${{ github.event.inputs.aks_resource_group }} \
-            --attach-acr ${{ github.event.inputs.aks_acr_name }}
+            --name $AKS_CLUSTER_NAME \
+            --resource-group $AKS_RESOURCE_GROUP \
+            --attach-acr $AKS_ACR_NAME
 
       - name: Deploy Backend Infrastructure
         run: |
