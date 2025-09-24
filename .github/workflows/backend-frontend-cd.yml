@@ -41,32 +41,62 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set AKS environment variables  # MODIFIED
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "AKS_RESOURCE_GROUP=${{ github.event.inputs.aks_resource_group }}" >> $GITHUB_ENV
-            echo "AKS_CLUSTER_NAME=${{ github.event.inputs.aks_cluster_name }}" >> $GITHUB_ENV
-            echo "AKS_ACR_NAME=${{ github.event.inputs.aks_acr_name }}" >> $GITHUB_ENV
-          else
-            # Defaults saat triggered oleh workflow_run
-            echo "AKS_RESOURCE_GROUP=sit722devops-rgw9" >> $GITHUB_ENV
-            echo "AKS_CLUSTER_NAME=taskweek9aks" >> $GITHUB_ENV
-            echo "AKS_ACR_NAME=taskweek9acr" >> $GITHUB_ENV
-          fi
+      name: CD - Deploy Backend & Frontend to AKS
 
-      - name: Set Kubernetes context (get AKS credentials)
+on:
+  workflow_run:
+    workflows: ["Backend CI - Test, Build and Push Images to ACR", "Frontend CI - Build & Push Image"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      aks_cluster_name:
+        description: 'Name of the AKS Cluster to deploy to'
+        required: true
+        default: 'taskweek9aks'
+      aks_resource_group:
+        description: 'Resource Group of the AKS Cluster'
+        required: true
+        default: 'sit722devops-rgw9'
+      aks_acr_name:
+        description: 'Name of ACR'
+        required: true
+        default: 'taskweek9acr'
+
+jobs:
+  # ===========================
+  # Backend Deployment Job
+  # ===========================
+  deploy_backend:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    outputs:
+      PRODUCT_API_IP: ${{ steps.get_product_ip.outputs.external_ip }}
+      ORDER_API_IP: ${{ steps.get_order_ip.outputs.external_ip }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set Kubernetes context (get AKS credentials)  # MODIFIED
         run: |
           az aks get-credentials \
-            --resource-group $AKS_RESOURCE_GROUP \
-            --name $AKS_CLUSTER_NAME \
+            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
             --overwrite-existing
 
-      - name: Attach ACR
+      - name: Attach ACR  # MODIFIED
         run: |
           az aks update \
-            --name $AKS_CLUSTER_NAME \
-            --resource-group $AKS_RESOURCE_GROUP \
-            --attach-acr $AKS_ACR_NAME
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+            --attach-acr ${{ secrets.AKS_ACR_NAME }}
 
       - name: Deploy Backend Infrastructure
         run: |
@@ -123,7 +153,7 @@ jobs:
   deploy_frontend:
     runs-on: ubuntu-latest
     environment: Production
-    needs: deploy_backend   # <--- ambil IP dari backend job
+    needs: deploy_backend   # <--- get IP dari backend job
 
     steps:
       - name: Checkout repository
@@ -148,11 +178,11 @@ jobs:
           docker build -t ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:latest ./frontend/
           docker push ${{ secrets.AZURE_CONTAINER_REGISTRY }}/frontend:latest
 
-      - name: Set Kubernetes context
+      - name: Set Kubernetes context  # MODIFIED
         uses: azure/aks-set-context@v3
         with:
-          resource-group: ${{ github.event.inputs.aks_resource_group }}
-          cluster-name: ${{ github.event.inputs.aks_cluster_name }}
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
 
       - name: Deploy Frontend to AKS
         run: |
