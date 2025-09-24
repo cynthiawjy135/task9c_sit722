@@ -2,7 +2,7 @@ name: CD - Deploy Backend & Frontend to AKS
 
 on:
   workflow_run:
-    workflows: ["Backend CI - Test, Build and Push Images to ACR", "Frontend CI - Build & Push Image"]
+    workflows: ["Backend CI - Test, Build and Push Images to ACR"]
     types:
       - completed
   workflow_dispatch:
